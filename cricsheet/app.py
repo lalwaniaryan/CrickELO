@@ -44,9 +44,17 @@ if uploaded:
     st.sidebar.success(f"Uploaded file saved as {RAW_FILE}")
 
 st.sidebar.markdown("### Hyperparameters")
-perf_scale = st.sidebar.slider("PERF_SCALE (logistic width)", 0.25, 2.0, 0.75, 0.05)
+
+# Existing knobs
+perf_scale = st.sidebar.slider("PERF_SCALE (logistic width)", 0.10, 2.0, 0.75, 0.05)
 k_base     = st.sidebar.slider("K_BASE", 5.0, 60.0, 20.0, 1.0)
-z_clip     = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 6.0, 4.0, 0.5)
+z_clip     = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 8.0, 4.0, 0.5)
+
+# NEW knobs to unlock rating range
+elo_scale    = st.sidebar.slider("ELO_SCALE (rating spread)", 300.0, 1600.0, 900.0, 50.0)
+perf_stretch = st.sidebar.slider("PERF_STRETCH (separation)", 1.0, 10.0, 3.0, 0.25)
+
+st.sidebar.caption("ELO_START is fixed at 1500. Increase ELO_SCALE / PERF_STRETCH to allow higher peaks.")
 
 # ---------------------------
 # Recompute pipeline (single, final)
@@ -54,10 +62,12 @@ z_clip     = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 6.0, 4.0, 0.5)
 def run_pipeline(active_file: str) -> bool:
     with st.spinner("Computing Elo…"):
         env = os.environ.copy()
-        env["INPUT_FILE_OVERRIDE"] = active_file
-        env["PERF_SCALE_OVERRIDE"] = str(perf_scale)
-        env["K_BASE_OVERRIDE"]     = str(k_base)
-        env["Z_CLIP_OVERRIDE"]     = str(z_clip)
+        env["INPUT_FILE_OVERRIDE"]        = active_file
+        env["PERF_SCALE_OVERRIDE"]        = str(perf_scale)
+        env["K_BASE_OVERRIDE"]            = str(k_base)
+        env["Z_CLIP_OVERRIDE"]            = str(z_clip)
+        env["ELO_SCALE_OVERRIDE"]         = str(elo_scale)
+        env["PERF_STRETCH_OVERRIDE"]      = str(perf_stretch)
 
         result = subprocess.run(
             ["python", "elo_weighted_rank.py"],
@@ -65,7 +75,10 @@ def run_pipeline(active_file: str) -> bool:
         )
         if result.returncode != 0:
             st.error("Pipeline failed")
-            st.code(result.stderr)
+            if result.stderr.strip():
+                st.code(result.stderr)
+            if result.stdout.strip():
+                st.code(result.stdout)
             return False
 
         st.success("Recomputed Elo successfully")
@@ -76,7 +89,7 @@ def run_pipeline(active_file: str) -> bool:
 if st.sidebar.button("Recompute Elo"):
     ok = run_pipeline(RAW_FILE)
     if ok:
-        load_csv_safe.clear()   # ✅ valid now (function already defined above)
+        load_csv_safe.clear()
         st.experimental_rerun()
 
 # ---------------------------
@@ -97,9 +110,9 @@ if df_players is None or df_matches is None:
 st.subheader("Leaderboard")
 with st.expander("About this table", expanded=False):
     st.markdown("""
-- **Elo**: Solo Elo vs. a 1500 baseline, updated each match using your weighted performance.
+- **Elo**: Player rating starting at 1500, updated each match using weighted performance.
 - **Matches_Played**: Appearances in the dataset.
-- Use the filter below to reduce small-sample noise.
+- Tip: increase **ELO_SCALE** and/or **PERF_STRETCH** if ratings cluster too tightly (e.g., stuck ~1600).
 """)
 
 max_played = int(df_players["Matches_Played"].max()) if len(df_players) else 1
@@ -129,7 +142,7 @@ if sel_player:
             pm.sort_values("DateParsed"),
             x="DateParsed", y="Elo_After",
             markers=True,
-            hover_data=["Match_ID","Opponent","Venue","Runs_Scored","Balls_Faced"]
+            hover_data=[c for c in ["Match_ID","Opponent","Venue","Runs_Scored","Balls_Faced","ObservedScore","K_used"] if c in pm.columns]
         )
         fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Elo")
         st.plotly_chart(fig, use_container_width=True)
@@ -138,7 +151,7 @@ if sel_player:
         st.markdown("**Recent matches**")
         cols = [c for c in [
             "Date","Match_ID","Opponent","Venue","Runs_Scored","Balls_Faced",
-            "Fours","Sixes","ObservedScore","K_used","Elo_After"
+            "Fours","Sixes","WeightedPerf","ObservedScore","Elo_Before","Elo_Expected","K_used","Elo_After"
         ] if c in pm.columns]
         st.dataframe(pm.sort_values("DateParsed", ascending=False)[cols].head(12), use_container_width=True)
 
@@ -154,13 +167,15 @@ if sel_player:
 st.subheader("Diagnostics")
 present = [c for c in [
     "Runs_Scored","Balls_Faced","Fours","Sixes","Team_Won","Win_Margin",
-    "ObservedScore","K_used","WeightedPerf"
+    "ObservedScore","K_used","WeightedPerf","Elo_After"
 ] if c in df_matches.columns]
 if present:
     corr = df_matches[present].corr(numeric_only=True)
-    target_col = "WeightedPerf" if "WeightedPerf" in corr.columns else present[0]
+    target_col = "Elo_After" if "Elo_After" in corr.columns else present[0]
     st.markdown("**Correlations (numeric)**")
-    st.dataframe(corr.get(target_col, pd.Series(dtype=float)).sort_values(ascending=False).to_frame(),
-                 use_container_width=True)
+    st.dataframe(
+        corr.get(target_col, pd.Series(dtype=float)).sort_values(ascending=False).to_frame(),
+        use_container_width=True
+    )
 
-st.caption("Tip: validate hypotheses with AUC/LogLoss offline, then port to Next.js + FastAPI for production.")
+st.caption("Tip: If ratings still cluster, inspect WeightedPerf distribution; separation is driven by PERF_STRETCH and PERF_SCALE.")
