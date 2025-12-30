@@ -44,7 +44,7 @@ EXTRA_NUMERIC = {
 # ------------------------------
 # Elo params
 # ------------------------------
-ELO_START = 1500.0  # FIXED baseline
+ELO_START = 2000.0  # FIXED baseline
 ELO_SCALE = float(os.getenv("ELO_SCALE_OVERRIDE", 900.0))  # was 400; larger => wider rating spread
 
 K_BASE = float(os.getenv("K_BASE_OVERRIDE", 20.0))
