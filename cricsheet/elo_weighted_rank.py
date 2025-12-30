@@ -39,7 +39,7 @@ BOOLEANISH = {"toss_win", "team_won"}
 # ------------------------------
 # Elo params
 # ------------------------------
-ELO_START = 1500.0  # ✅ fixed baseline as requested
+ELO_START = 2000.0
 ELO_SCALE = float(os.getenv("ELO_SCALE_OVERRIDE", 900.0))
 
 K_BASE = float(os.getenv("K_BASE_OVERRIDE", 40.0))
@@ -221,7 +221,7 @@ def main():
 
     print(
         "Saved: player_elo_ratings.csv, match_scores.csv "
-        f"(from {INPUT_FILE}) | ELO_START=1500 | ELO_SCALE={ELO_SCALE} | PERF_STRETCH={PERF_STRETCH} | K_RANGE=[{K_MIN},{K_MAX}]"
+        f"(from {INPUT_FILE}) | ELO_START=2000 | ELO_SCALE={ELO_SCALE} | PERF_STRETCH={PERF_STRETCH} | K_RANGE=[{K_MIN},{K_MAX}]"
     )
 
 if __name__ == "__main__":
