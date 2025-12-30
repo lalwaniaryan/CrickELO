@@ -54,7 +54,7 @@ k_base = st.sidebar.slider("K_BASE", 20.0, 120.0, 40.0, 5.0)
 z_clip = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 8.0, 4.0, 0.5)
 
 # NEW knobs to unlock rating range
-elo_scale    = st.sidebar.slider("ELO_SCALE (rating spread)", 100.0, 1600.0, 900.0, 50.0)
+elo_scale    = st.sidebar.slider("ELO_SCALE (rating spread)", 100.0, 4000.0, 900.0, 50.0)
 perf_stretch = st.sidebar.slider("PERF_STRETCH (separation)", 1.0, 10.0, 3.0, 0.25)
 
 st.sidebar.caption("ELO_START is fixed at 1500. Increase ELO_SCALE / PERF_STRETCH to allow higher peaks.")
