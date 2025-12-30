@@ -48,7 +48,7 @@ ELO_START = 2000.0  # FIXED baseline
 ELO_SCALE = float(os.getenv("ELO_SCALE_OVERRIDE", 900.0))  # was 400; larger => wider rating spread
 
 K_BASE = float(os.getenv("K_BASE_OVERRIDE", 20.0))
-K_MIN, K_MAX = 8.0, 60.0
+K_MIN, K_MAX = 20.0, 200.0
 
 PERF_SCALE = float(os.getenv("PERF_SCALE_OVERRIDE", 0.75))
 Z_CLIP = float(os.getenv("Z_CLIP_OVERRIDE", 4.0))

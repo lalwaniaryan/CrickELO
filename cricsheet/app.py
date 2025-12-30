@@ -47,7 +47,7 @@ st.sidebar.markdown("### Hyperparameters")
 
 # Existing knobs
 perf_scale = st.sidebar.slider("PERF_SCALE (logistic width)", 0.10, 2.0, 0.75, 0.05)
-k_base     = st.sidebar.slider("K_BASE", 5.0, 60.0, 20.0, 1.0)
+k_base = st.sidebar.slider("K_BASE", 20.0, 200.0, 40.0, 5.0)
 z_clip     = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 8.0, 4.0, 0.5)
 
 # NEW knobs to unlock rating range
