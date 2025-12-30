@@ -90,7 +90,12 @@ if st.sidebar.button("Recompute Elo"):
     ok = run_pipeline(RAW_FILE)
     if ok:
         load_csv_safe.clear()
-        st.experimental_rerun()
+
+        # Streamlit version compatibility: new versions use st.rerun()
+        try:
+            st.rerun()
+        except Exception:
+            st.experimental_rerun()
 
 # ---------------------------
 # Load outputs
