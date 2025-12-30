@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-RAW_FILE   = "player_match_by_match_stats.csv"
+RAW_FILE   = "player_match_by_match_stats_sorted.csv"
 MATCH_CSV  = "match_scores.csv"
 PLAYER_CSV = "player_elo_ratings.csv"
 
