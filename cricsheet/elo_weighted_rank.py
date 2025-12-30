@@ -2,10 +2,10 @@
 # Input : player_match_by_match_stats.csv (default) OR env override
 # Output: player_elo_ratings.csv, match_scores.csv
 #
-# Wires added:
+# Wires:
 # - Reads INPUT_FILE_OVERRIDE, PERF_SCALE_OVERRIDE, K_BASE_OVERRIDE, Z_CLIP_OVERRIDE from env
-# - NEW: Reads ELO_SCALE_OVERRIDE, PERF_STRETCH_OVERRIDE
-# - ELO_START fixed at 1500 as requested
+# - Reads ELO_SCALE_OVERRIDE, PERF_STRETCH_OVERRIDE
+# - ELO_START fixed at 1500
 
 import os
 import pandas as pd
@@ -35,25 +35,22 @@ CATEGORICAL = {
     "toss_decision","win_type","position_mode","player_of_match"
 }
 BOOLEANISH = {"toss_win", "team_won"}
-EXTRA_NUMERIC = {
-    "match_type_number","win_margin","runs_scored","balls_faced","fours","sixes","wides_faced",
-    "noballs_faced","batting_position","balls_bowled","runs_conceded","wickets","wicket_kinds",
-    "wides_bowled","noballs_bowled"
-}
 
 # ------------------------------
 # Elo params
 # ------------------------------
-ELO_START = 2000.0  # FIXED baseline
-ELO_SCALE = float(os.getenv("ELO_SCALE_OVERRIDE", 900.0))  # was 400; larger => wider rating spread
+ELO_START = 1500.0  # ✅ fixed baseline as requested
+ELO_SCALE = float(os.getenv("ELO_SCALE_OVERRIDE", 900.0))
 
-K_BASE = float(os.getenv("K_BASE_OVERRIDE", 20.0))
-K_MIN, K_MAX = 20.0, 200.0
+K_BASE = float(os.getenv("K_BASE_OVERRIDE", 40.0))
+
+# ✅ K used per match is clipped to [20, 120]
+K_MIN, K_MAX = 20.0, 120.0
 
 PERF_SCALE = float(os.getenv("PERF_SCALE_OVERRIDE", 0.75))
 Z_CLIP = float(os.getenv("Z_CLIP_OVERRIDE", 4.0))
 
-# NEW: separation factor for WeightedPerf before logistic (larger => scores closer to 0/1)
+# separation factor for WeightedPerf before logistic
 PERF_STRETCH = float(os.getenv("PERF_STRETCH_OVERRIDE", 3.0))
 
 def normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
@@ -97,6 +94,7 @@ def build_feature_matrix(df: pd.DataFrame):
         else:
             s_num = to_num(s).fillna(0.0)
         feats[col] = zscore_sample(s_num)
+
     if not feats:
         raise RuntimeError("No weighted features found with weight > 0.")
     return pd.DataFrame(feats, index=df.index)
@@ -110,7 +108,6 @@ def compute_weighted_perf(X: pd.DataFrame) -> pd.Series:
     return pd.Series(X.values @ w / denom, index=X.index)
 
 def logistic_score(perf: pd.Series, scale: float = PERF_SCALE) -> pd.Series:
-    # Critical change: increase separation before logistic
     perf2 = perf * PERF_STRETCH
     return 1.0 / (1.0 + np.exp(-perf2 / scale))
 
@@ -120,7 +117,6 @@ def elo_expectation(r_player: float, r_baseline: float = ELO_START, scale: float
 def importance_scale(row: pd.Series) -> float:
     """
     Small K multiplier based on match context. Kept conservative.
-    Note: this uses per-row encoding (not global), so it's a mild heuristic only.
     """
     s = 0.0
     def add(val, w): return w * val if pd.notna(val) else 0.0
@@ -145,7 +141,6 @@ def importance_scale(row: pd.Series) -> float:
     s += add(win_type_num, win_type_w * 0.5)
     s += add(win_margin_num, win_margin_w)
 
-    # Keep multiplier bounded (~[1.0, 1.5]) centered around ~1.25
     mult = 1.0 + 0.25 * np.tanh(s / 20.0) + 0.25
     return float(mult)
 
@@ -226,7 +221,7 @@ def main():
 
     print(
         "Saved: player_elo_ratings.csv, match_scores.csv "
-        f"(from {INPUT_FILE}) | ELO_START=1500 | ELO_SCALE={ELO_SCALE} | PERF_STRETCH={PERF_STRETCH}"
+        f"(from {INPUT_FILE}) | ELO_START=1500 | ELO_SCALE={ELO_SCALE} | PERF_STRETCH={PERF_STRETCH} | K_RANGE=[{K_MIN},{K_MAX}]"
     )
 
 if __name__ == "__main__":

@@ -47,8 +47,11 @@ st.sidebar.markdown("### Hyperparameters")
 
 # Existing knobs
 perf_scale = st.sidebar.slider("PERF_SCALE (logistic width)", 0.10, 2.0, 0.75, 0.05)
-k_base = st.sidebar.slider("K_BASE", 20.0, 200.0, 40.0, 5.0)
-z_clip     = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 8.0, 4.0, 0.5)
+
+# ✅ K_BASE in sidebar from 20 to 120
+k_base = st.sidebar.slider("K_BASE", 20.0, 120.0, 40.0, 5.0)
+
+z_clip = st.sidebar.slider("Z_CLIP (clip z-scores)", 2.0, 8.0, 4.0, 0.5)
 
 # NEW knobs to unlock rating range
 elo_scale    = st.sidebar.slider("ELO_SCALE (rating spread)", 100.0, 1600.0, 900.0, 50.0)
@@ -91,11 +94,15 @@ if st.sidebar.button("Recompute Elo"):
     if ok:
         load_csv_safe.clear()
 
-        # Streamlit version compatibility: new versions use st.rerun()
+        # Streamlit version compatibility
         try:
             st.rerun()
         except Exception:
-            st.experimental_rerun()
+            # Older versions may still have experimental_rerun
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
 
 # ---------------------------
 # Load outputs
@@ -117,14 +124,25 @@ with st.expander("About this table", expanded=False):
     st.markdown("""
 - **Elo**: Player rating starting at 1500, updated each match using weighted performance.
 - **Matches_Played**: Appearances in the dataset.
-- Tip: increase **ELO_SCALE** and/or **PERF_STRETCH** if ratings cluster too tightly (e.g., stuck ~1600).
 """)
 
 max_played = int(df_players["Matches_Played"].max()) if len(df_players) else 1
-min_games = st.slider("Minimum matches to display", 1, max(1, max_played), min(5, max_played), 1)
+
+# ✅ Minimum matches to display slider from 20 to 200 (clamped to max_played)
+min_slider_low = max(20, 1)
+min_slider_high = min(200, max_played) if max_played >= 20 else max_played
+min_default = min(20, min_slider_high) if min_slider_high > 0 else 1
+
+min_games = st.slider(
+    "Minimum matches to display",
+    min_value=min_slider_low,
+    max_value=max(1, min_slider_high),
+    value=max(1, min_default),
+    step=1,
+)
 
 lb = (df_players[df_players["Matches_Played"] >= min_games]
-      .sort_values(["Elo","Matches_Played"], ascending=[False, False])
+      .sort_values(["Elo", "Matches_Played"], ascending=[False, False])
       .reset_index(drop=True))
 st.dataframe(lb, use_container_width=True)
 
@@ -139,7 +157,7 @@ if sel_player:
     pm = df_matches[df_matches["Player"] == sel_player].copy()
     pm["DateParsed"] = pd.to_datetime(pm["Date"], errors="coerce")
 
-    col1, col2 = st.columns([2,1], gap="large")
+    col1, col2 = st.columns([2, 1], gap="large")
 
     with col1:
         st.markdown("**Elo over time**")
@@ -147,7 +165,7 @@ if sel_player:
             pm.sort_values("DateParsed"),
             x="DateParsed", y="Elo_After",
             markers=True,
-            hover_data=[c for c in ["Match_ID","Opponent","Venue","Runs_Scored","Balls_Faced","ObservedScore","K_used"] if c in pm.columns]
+            hover_data=[c for c in ["Match_ID", "Opponent", "Venue", "Runs_Scored", "Balls_Faced", "ObservedScore", "K_used"] if c in pm.columns]
         )
         fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Elo")
         st.plotly_chart(fig, use_container_width=True)
@@ -155,8 +173,9 @@ if sel_player:
     with col2:
         st.markdown("**Recent matches**")
         cols = [c for c in [
-            "Date","Match_ID","Opponent","Venue","Runs_Scored","Balls_Faced",
-            "Fours","Sixes","WeightedPerf","ObservedScore","Elo_Before","Elo_Expected","K_used","Elo_After"
+            "Date", "Match_ID", "Opponent", "Venue", "Runs_Scored", "Balls_Faced",
+            "Fours", "Sixes", "WeightedPerf", "ObservedScore", "Elo_Before",
+            "Elo_Expected", "K_used", "Elo_After"
         ] if c in pm.columns]
         st.dataframe(pm.sort_values("DateParsed", ascending=False)[cols].head(12), use_container_width=True)
 
@@ -171,8 +190,8 @@ if sel_player:
 # ---------------------------
 st.subheader("Diagnostics")
 present = [c for c in [
-    "Runs_Scored","Balls_Faced","Fours","Sixes","Team_Won","Win_Margin",
-    "ObservedScore","K_used","WeightedPerf","Elo_After"
+    "Runs_Scored", "Balls_Faced", "Fours", "Sixes", "Team_Won", "Win_Margin",
+    "ObservedScore", "K_used", "WeightedPerf", "Elo_After"
 ] if c in df_matches.columns]
 if present:
     corr = df_matches[present].corr(numeric_only=True)
